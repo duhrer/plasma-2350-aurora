@@ -35,16 +35,17 @@ int ticks = 0;
 int rx_sm;
 
 // Used for "off" and "on" toggle
-bool isLit = true;
+bool isLit = false;
 
 // TODO: This should be a more defined structure
-int colourMode = 0; // 0: Solid, 1: Discrete Rainbow, 2: Continuous Rainbow
+int colourMode = 0; // 0: Solid, 1: Colour Cycling 2: Aurora
 
 TARGET_COLOUR current_colour = TC_WHITE;
 
 int brightness_pct = 25;
 
 int continuous_colour_change_index = 0;
+
 
 // End "state" variables
 
@@ -271,37 +272,131 @@ void poll_infrared () {
 // TODO: Make the colour more interesting, i.e. add pulsing or waves.
 void redraw_with_current_colour () {
     float brightness_multiplier = brightness_pct / 100.0;
-    neopixels.fill(neopixels.Color(current_colour.r, current_colour.g, current_colour.b), 0, TOTAL_NEOPIXELS * brightness_multiplier);
+    neopixels.fill(neopixels.Color(current_colour.r * brightness_multiplier, current_colour.g * brightness_multiplier, current_colour.b * brightness_multiplier));
     neopixels.show();
 }
 
+typedef struct Orbit {
+    int cx;
+    int cy;
 
-// TODO: Research a few strategies for drawing circles, paths, et cetera.
+    int orbit_radius;
+    int orbit_angle;
+    int orbit_angle_delta;
 
-int aurora_start_index = 0;
+    int planet_radius;
+    uint32_t colour;
+} Orbit;
+
+static Orbit redOrbit = {
+    .cx = 0,
+    .cy = 0,
+    .orbit_radius = 15,
+    .orbit_angle = 0,
+    .orbit_angle_delta = 8,
+
+    .planet_radius = 15,
+    .colour = (uint32_t) (255 << 16)
+};
+
+// redOrbit.colour = neopixels.Color(255, 0, 0);
+
+static Orbit greenOrbit = {
+    .cx = 20,
+    .cy = 0,
+    .orbit_radius = 15,
+    .orbit_angle = 180,
+    .orbit_angle_delta = 10,
+
+    .planet_radius = 15,
+    .colour = (uint32_t) (255 << 8)
+};
+
+// greenOrbit.colour = neopixels.Color(0, 255, 0);
+
+static Orbit blueOrbit = {
+    .cx = 10,
+    .cy = 20,
+    .orbit_radius = 10,
+    .orbit_angle = 270,
+    .orbit_angle_delta = 12,
+
+    .planet_radius = 15,
+    .colour = (uint32_t) 255
+};
+
+// blueOrbit.colour = neopixels.Color(0, 0, 255);
+
 
 void update_aurora() {
-    aurora_start_index = (aurora_start_index + 1) % 7;
+    redOrbit.orbit_angle = (redOrbit.orbit_angle + redOrbit.orbit_angle_delta) % 360;
+    greenOrbit.orbit_angle = (greenOrbit.orbit_angle + greenOrbit.orbit_angle_delta) % 360;
+    blueOrbit.orbit_angle = (blueOrbit.orbit_angle + blueOrbit.orbit_angle_delta) % 360;
+}
+
+void add_orbit_to_grid (Orbit orbit, uint32_t *grid) {
+    double planetRadians = orbit.orbit_angle * (M_PI / 180);
+
+    int planetCX = orbit.cx + (cos(planetRadians) * orbit.orbit_radius);
+    int planetCY = orbit.cy + (sin(planetRadians) * orbit.orbit_radius);
+
+    for (int row = 0; row < 20; row++) {
+        for (int column = 0; column < 20; column++) {
+            int gridIndex = (row * 20) + column;
+            int distance;
+
+            if (row == planetCY) {
+                distance = fabs(planetCX - column);
+            }
+            else if (column == planetCX) {
+                distance = fabs(planetCY - row);
+            }
+            else {
+                // Triangulate the distance
+                distance = sqrt(
+                    pow((planetCX - column) ,2) +
+                    pow((planetCY - row) ,2)
+                );
+            }
+
+            if (distance <= orbit.planet_radius) {
+                int energyPercentage;
+                if (distance == 0) {
+                    energyPercentage = 100;
+                }
+                else {
+                    energyPercentage = 100 * (orbit.planet_radius - distance)/orbit.planet_radius;
+                }
+
+                uint8_t currentGridRedLevel = (grid[gridIndex] >> 16) & 0xff;
+                uint8_t currentGridGreenLevel = (grid[gridIndex] >> 8) & 0xff;
+                uint8_t currentGridBlueLevel = grid[gridIndex] & 0xff;
+
+                uint8_t orbitRedLevel = (orbit.colour >> 16) & 0xff;
+                uint8_t orbitGreenLevel = (orbit.colour >> 8) & 0xff;
+                uint8_t orbitBlueLevel = orbit.colour & 0xff;
+
+                uint8_t newRedLevel = (uint8_t)((int)(currentGridRedLevel + (orbitRedLevel * energyPercentage)/100) % 256);
+                uint8_t newGreenLevel = (uint8_t)((int)(currentGridGreenLevel + (orbitGreenLevel * energyPercentage)/100) % 256);
+                uint8_t newBlueLevel = (uint8_t)((int)(currentGridBlueLevel + (orbitBlueLevel * energyPercentage)/100) % 256);
+
+                uint32_t newColour = ((newRedLevel & 0xff) << 16) | ((newGreenLevel & 0xff) << 8) | (newBlueLevel & 0xff);
+
+                grid[gridIndex] = newColour;
+            }
+        }
+    }
 }
 
 void redraw_aurora() {
-    // TODO: Use this approach for more complex animations and colour mixing
-    // // A Color is just a packed collection of 8-bit RGB or RGBW values.
-    // u_int32_t aurora_colours[TOTAL_NEOPIXELS] = { 0 };
+    uint32_t colourGrid[400] = { 0 };
 
-    // // Now output the combined colours to the neopixel grid.
-    // for (int index = 0; index < TOTAL_NEOPIXELS; index++) {
-    //     neopixels.setPixelColor(index, aurora_colours[index]);
-    // }
+    add_orbit_to_grid(redOrbit,   colourGrid);
+    add_orbit_to_grid(greenOrbit, colourGrid);
+    add_orbit_to_grid(blueOrbit,  colourGrid);
 
-    // As a simple starter example, draw a "rainbow" flag, with three rows per
-    // colour (the last band will only have two rows).
-    for (int band = 0; band < 7; band ++) {
-        int colour_index = (aurora_start_index + band) % 7;
-        TARGET_COLOUR band_target_colour = COLOUR_WHEEL[colour_index];
-        uint32_t band_colour = neopixels.Color(band_target_colour.r, band_target_colour.g, band_target_colour.b);
-        int start_pixel = (band * 60);
-        neopixels.fill(band_colour, start_pixel, 60);
+    for (int index = 0; index < 400; index++) {
+        neopixels.setPixelColor(index, colourGrid[index]);
     }
 
     neopixels.show();
