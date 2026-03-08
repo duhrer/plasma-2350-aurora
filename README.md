@@ -24,7 +24,7 @@ First, you need the right hardware:
 
 Most of the functions used in this project are accessed using an IR receiver and
 remote. I used [this IR
-receiver](https://www.tinytronics.nl/en/communication-and-signals/wireless/infrared/ir-infrared-receiver-module-38khz-940nm)).
+receiver](https://www.tinytronics.nl/en/communication-and-signals/wireless/infrared/ir-infrared-receiver-module-38khz-940nm).
 Connect the `ground` and `vcc` pins to the `ground` and `3v3` headers on your
 microcontroller. Connect the `out` pin to the header for `GPIO5`. Note that this
 component only works if it has enough of an unobstructed "line of sight" from
@@ -63,7 +63,7 @@ distrobox enter pico-sdk
 
 A few things are hard coded that you might want to change:
 
-1. The GPIO pins used for the neopixel strands
+1. The GPIO pin used for the neopixel strands
 2. The total number of lights.
 3. The number of lights in each row and column.
 4. The GPIO pin used for the IR receiver
