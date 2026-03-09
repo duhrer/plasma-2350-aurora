@@ -299,7 +299,17 @@ static Orbit redOrbit = {
     .colour = (uint32_t) (255 << 16)
 };
 
-// redOrbit.colour = neopixels.Color(255, 0, 0);
+static Orbit antiRedOrbit = {
+    .cx = 0,
+    .cy = 0,
+    .orbit_radius = 15,
+    .orbit_angle = 0,
+    .orbit_angle_delta = 8,
+
+    .planet_radius = 15,
+    .colour = (uint32_t) ( (32 << 16) | (32 << 8) | 32 ) 
+};
+
 
 static Orbit greenOrbit = {
     .cx = 20,
@@ -312,7 +322,17 @@ static Orbit greenOrbit = {
     .colour = (uint32_t) (255 << 8)
 };
 
-// greenOrbit.colour = neopixels.Color(0, 255, 0);
+static Orbit antiGreenOrbit = {
+    .cx = 20,
+    .cy = 0,
+    .orbit_radius = 15,
+    .orbit_angle = 0,
+    .orbit_angle_delta = 10,
+
+    .planet_radius = 15,
+    .colour = (uint32_t) ( (32 << 16) | (32 << 8) | 32 ) 
+};
+
 
 static Orbit blueOrbit = {
     .cx = 10,
@@ -325,13 +345,27 @@ static Orbit blueOrbit = {
     .colour = (uint32_t) 255
 };
 
-// blueOrbit.colour = neopixels.Color(0, 0, 255);
+static Orbit antiBlueOrbit = {
+    .cx = 10,
+    .cy = 20,
+    .orbit_radius = 10,
+    .orbit_angle = 90,
+    .orbit_angle_delta = 12,
+
+    .planet_radius = 15,
+    .colour = (uint32_t) ( (32 << 16) | (32 << 8) | 32 ) 
+};
 
 
 void update_aurora() {
     redOrbit.orbit_angle = (redOrbit.orbit_angle + redOrbit.orbit_angle_delta) % 360;
+    antiRedOrbit.orbit_angle = (antiRedOrbit.orbit_angle + antiRedOrbit.orbit_angle_delta) % 360;
+
     greenOrbit.orbit_angle = (greenOrbit.orbit_angle + greenOrbit.orbit_angle_delta) % 360;
+    antiGreenOrbit.orbit_angle = (antiGreenOrbit.orbit_angle + antiGreenOrbit.orbit_angle_delta) % 360;
+
     blueOrbit.orbit_angle = (blueOrbit.orbit_angle + blueOrbit.orbit_angle_delta) % 360;
+    antiBlueOrbit.orbit_angle = (antiBlueOrbit.orbit_angle + antiBlueOrbit.orbit_angle_delta) % 360;
 }
 
 void add_orbit_to_grid (Orbit orbit, uint32_t *grid) {
@@ -362,10 +396,10 @@ void add_orbit_to_grid (Orbit orbit, uint32_t *grid) {
             if (distance <= orbit.planet_radius) {
                 int energyPercentage;
                 if (distance == 0) {
-                    energyPercentage = 100;
+                    energyPercentage = brightness_pct;
                 }
                 else {
-                    energyPercentage = 100 * (orbit.planet_radius - distance)/orbit.planet_radius;
+                    energyPercentage = brightness_pct * (orbit.planet_radius - distance)/orbit.planet_radius;
                 }
 
                 uint8_t currentGridRedLevel = (grid[gridIndex] >> 16) & 0xff;
@@ -376,9 +410,9 @@ void add_orbit_to_grid (Orbit orbit, uint32_t *grid) {
                 uint8_t orbitGreenLevel = (orbit.colour >> 8) & 0xff;
                 uint8_t orbitBlueLevel = orbit.colour & 0xff;
 
-                uint8_t newRedLevel = (uint8_t)((int)(currentGridRedLevel + (orbitRedLevel * energyPercentage)/100) % 256);
-                uint8_t newGreenLevel = (uint8_t)((int)(currentGridGreenLevel + (orbitGreenLevel * energyPercentage)/100) % 256);
-                uint8_t newBlueLevel = (uint8_t)((int)(currentGridBlueLevel + (orbitBlueLevel * energyPercentage)/100) % 256);
+                uint8_t newRedLevel = (uint8_t)(fmin((currentGridRedLevel + (orbitRedLevel * energyPercentage)/100), 255));
+                uint8_t newGreenLevel = (uint8_t)(fmin((currentGridGreenLevel + (orbitGreenLevel * energyPercentage)/100), 255));
+                uint8_t newBlueLevel = (uint8_t)(fmin((currentGridBlueLevel + (orbitBlueLevel * energyPercentage)/100),255));
 
                 uint32_t newColour = ((newRedLevel & 0xff) << 16) | ((newGreenLevel & 0xff) << 8) | (newBlueLevel & 0xff);
 
@@ -392,8 +426,11 @@ void redraw_aurora() {
     uint32_t colourGrid[400] = { 0 };
 
     add_orbit_to_grid(redOrbit,   colourGrid);
+    add_orbit_to_grid(antiRedOrbit,   colourGrid);
     add_orbit_to_grid(greenOrbit, colourGrid);
+    add_orbit_to_grid(antiGreenOrbit, colourGrid);
     add_orbit_to_grid(blueOrbit,  colourGrid);
+    add_orbit_to_grid(antiBlueOrbit,  colourGrid);
 
     for (int index = 0; index < 400; index++) {
         neopixels.setPixelColor(index, colourGrid[index]);

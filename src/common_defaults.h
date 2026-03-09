@@ -7,7 +7,7 @@
 #define TICKS_PER_CONTINUOUS_COLOUR_CHANGE 200
 
 // How often to update the aurora
-#define TICKS_PER_AURORA_UPDATE 5
+#define TICKS_PER_AURORA_UPDATE 10
 
 #define NEOPIXELS_PIN 15
 #define TOTAL_NEOPIXELS 400
